@@ -38,7 +38,7 @@ async function enrichArtists(artists:Artist[]){
  const resolved:Artist[]=[];
  for(const artist of artists){const identified=await resolveArtist(artist);const key=`artist:${identified.mbid||identified.name.toLowerCase()}`;let info=cacheGet<any>(key);
   if(!info&&process.env.LASTFM_API_KEY){try{const r=await lastfm("artist.getInfo",identified.mbid?{mbid:identified.mbid}:{artist:identified.name});info={listeners:num(r.artist?.stats?.listeners),globalPlaycount:num(r.artist?.stats?.playcount),tags:list(r.artist?.tags?.tag).slice(0,5).map((t:any)=>t.name)};cacheSet(key,info,86400000)}catch{}}
-  resolved.push(info?{...identified,...info}:identified);
+  resolved.push(info?{...identified,...info,tags:[...new Set([...(identified.tags||[]),...(info.tags||[])])]}:identified);
  }
  return resolved;
 }
