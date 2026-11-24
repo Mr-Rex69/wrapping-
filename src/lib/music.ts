@@ -47,7 +47,8 @@ function makeBadges(s:ReturnType<typeof analyze>,artists:Artist[]){const b=[];if
 export async function buildWrap(source:Source,username:string):Promise<WrapData>{
  const key=`wrap:v2:${source}:${username.toLowerCase()}`;const cached=cacheGet<WrapData>(key);if(cached)return cached;
  const raw=source==="lastfm"?await fromLastfm(username):await fromListenBrainz(username);
- raw.topArtists=await enrichArtists(raw.topArtists.slice(0,10));
+ const allArtists=raw.topArtists;
+ raw.topArtists=[...await enrichArtists(allArtists.slice(0,10)),...allArtists.slice(10)];
  const albums:Album[]=[];for(const album of raw.topAlbums.slice(0,8))albums.push(await resolveAlbum(album));raw.topAlbums=albums;
  raw.topTracks=await Promise.all(raw.topTracks.map(track=>resolveTrackPreview(track)));
  const stats=analyze(raw.topArtists,raw.listens);const result:WrapData={...raw,generatedAt:new Date().toISOString(),stats,badges:makeBadges(stats,raw.topArtists)};
