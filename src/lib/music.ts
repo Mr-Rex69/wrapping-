@@ -7,7 +7,7 @@ const num=(v:unknown)=>Number(v||0);
 async function get<T>(url:string,headers?:Record<string,string>):Promise<T>{const r=await fetch(url,{headers:{"User-Agent":"Wrapping/0.2.0",...headers},cache:"no-store"});if(!r.ok)throw new Error(`Music service returned HTTP ${r.status}`);return r.json() as Promise<T>}
 async function lastfm(method:string,params:Record<string,string>={}){const key=process.env.LASTFM_API_KEY;if(!key)throw new Error("Last.fm is not configured. Add LASTFM_API_KEY to the server environment.");const u=new URL(LASTFM);u.search=new URLSearchParams({method,api_key:key,format:"json",...params}).toString();const d=await get<any>(u.toString());if(d.error)throw new Error(d.message||"Last.fm API error");return d}
 async function fromLastfm(username:string){
- const [ar,tr,al,re,ga]=await Promise.all([
+ const [ar,tr,al,re]=await Promise.all([
   lastfm("user.getTopArtists",{user:username,period:"12month",limit:"1000"}),
   lastfm("user.getTopTracks",{user:username,period:"12month",limit:"100"}),
   lastfm("user.getTopAlbums",{user:username,period:"12month",limit:"10"}),
@@ -25,7 +25,7 @@ async function fromLastfm(username:string){
 async function fromListenBrainz(username:string){
  const headers=process.env.LISTENBRAINZ_USER_TOKEN?{Authorization:`Token ${process.env.LISTENBRAINZ_USER_TOKEN}`}:undefined;
  const u=encodeURIComponent(username);
- const [ar,tr,al,re]=await Promise.all([
+ const [ar,tr,al,re,ga]=await Promise.all([
   get<any>(`${LB}/stats/user/${u}/artists?range=year&count=1000`,headers),
   get<any>(`${LB}/stats/user/${u}/recordings?range=year&count=100`,headers),
   get<any>(`${LB}/stats/user/${u}/releases?range=year&count=10`,headers),
