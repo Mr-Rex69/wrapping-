@@ -1,3 +1,4 @@
+import { cacheGet, cacheSet } from "./cache";
 import type { Album, Artist, Track } from "./types";
 
 const MB = "https://musicbrainz.org/ws/2";
@@ -20,10 +21,10 @@ export async function resolveArtist(a:Artist):Promise<Artist>{
     const q=encodeURIComponent(`artist:"${a.name.replace(/["\\]/g," ")}"`);
     const d=await mbFetch<any>(`/artist/?query=${q}&fmt=json&limit=5`);
     const exact=(d.artists||[]).filter((x:any)=>isExact(x.name,a.name));
-    if(exact.length===1) return {...a,mbid:exact[0].id,disambiguation:exact[0].disambiguation||undefined};
+    if(exact.length===1){const found={...a,mbid:exact[0].id,disambiguation:exact[0].disambiguation||undefined};cacheSet(cacheKey,found,30*86400000);return found;}
     if(exact.length>1){
       const primary=exact.filter((x:any)=>x["primary-type"]==="Person"||x["primary-type"]==="Group");
-      if(primary.length===1)return {...a,mbid:primary[0].id,disambiguation:primary[0].disambiguation||undefined};
+      if(primary.length===1){const found={...a,mbid:primary[0].id,disambiguation:primary[0].disambiguation||undefined};cacheSet(cacheKey,found,30*86400000);return found;}
     }
   }catch{}
   return a;
@@ -34,7 +35,7 @@ export async function resolveAlbum(a:Album):Promise<Album>{
       const d=await mbFetch<any>(`/release/${a.mbid}?inc=artists+release-groups&fmt=json`);
       const artist=artistCreditNames(d["artist-credit"]);
       if(isExact(d.title,a.name)&&isExact(artist,a.artist)){
-        return {...a,matched:true,matchedTitle:d.title,matchedArtist:artist,releaseMbid:d.id,releaseGroupMbid:d["release-group"]?.id,year:d.date?.slice(0,4),coverArt:`${CAA}/release/${d.id}/front-500`};
+        const found={...a,matched:true,matchedTitle:d.title,matchedArtist:artist,releaseMbid:d.id,releaseGroupMbid:d["release-group"]?.id,year:d.date?.slice(0,4),coverArt:`${CAA}/release/${d.id}/front-500`};cacheSet(cacheKey,found,30*86400000);return found;
       }
       return {...a,matched:false,matchNote:"The supplied release ID did not agree with the album and artist names."};
     }catch{return {...a,matched:false,matchNote:"The supplied release ID could not be verified."}}
@@ -45,11 +46,11 @@ export async function resolveAlbum(a:Album):Promise<Album>{
     const exact=(d.releases||[]).filter((x:any)=>isExact(x.title,a.name)&&isExact(artistCreditNames(x["artist-credit"]),a.artist));
     if(exact.length===1){
       const x=exact[0];
-      return {...a,matched:true,matchedTitle:x.title,matchedArtist:artistCreditNames(x["artist-credit"]),releaseMbid:x.id,releaseGroupMbid:x["release-group"]?.id,year:x.date?.slice(0,4),coverArt:`${CAA}/release/${x.id}/front-500`};
+      const found={...a,matched:true,matchedTitle:x.title,matchedArtist:artistCreditNames(x["artist-credit"]),releaseMbid:x.id,releaseGroupMbid:x["release-group"]?.id,year:x.date?.slice(0,4),coverArt:`${CAA}/release/${x.id}/front-500`};cacheSet(cacheKey,found,30*86400000);return found;
     }
     if(exact.length>1){
       const withDate=exact.filter((x:any)=>x.date);
-      if(withDate.length===1){const x=withDate[0];return {...a,matched:true,matchedTitle:x.title,matchedArtist:artistCreditNames(x["artist-credit"]),releaseMbid:x.id,releaseGroupMbid:x["release-group"]?.id,year:x.date?.slice(0,4),coverArt:`${CAA}/release/${x.id}/front-500`};}
+      if(withDate.length===1){const x=withDate[0];const found={...a,matched:true,matchedTitle:x.title,matchedArtist:artistCreditNames(x["artist-credit"]),releaseMbid:x.id,releaseGroupMbid:x["release-group"]?.id,year:x.date?.slice(0,4),coverArt:`${CAA}/release/${x.id}/front-500`};cacheSet(cacheKey,found,30*86400000);return found;}
       return {...a,matched:false,matchNote:"Several releases share this exact album and artist name; artwork was withheld to avoid a wrong match."};
     }
     return {...a,matched:false,matchNote:"No exact artist-and-album match was found in MusicBrainz."};
