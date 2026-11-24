@@ -17,3 +17,17 @@ jobs:
       - run: npm run build
         env:
           LASTFM_API_KEY: ci-placeholder
+      - name: Prepare standalone app
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
+          if [ -d public ]; then cp -r public .next/standalone/public; fi
+      - name: Upload production build
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapping-standalone-build
+          path: .next/standalone/
+          if-no-files-found: error
+          retention-days: 14
