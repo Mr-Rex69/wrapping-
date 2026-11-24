@@ -9,7 +9,7 @@ async function lastfm(method:string,params:Record<string,string>={}){const key=p
 async function fromLastfm(username:string){
  const [ar,tr,al,re]=await Promise.all([
   lastfm("user.getTopArtists",{user:username,period:"12month",limit:"100"}),
-  lastfm("user.getTopTracks",{user:username,period:"12month",limit:"10"}),
+  lastfm("user.getTopTracks",{user:username,period:"12month",limit:"100"}),
   lastfm("user.getTopAlbums",{user:username,period:"12month",limit:"10"}),
   lastfm("user.getRecentTracks",{user:username,limit:"200"})
  ]);
@@ -24,7 +24,7 @@ async function fromListenBrainz(username:string){
  const u=encodeURIComponent(username);
  const [ar,tr,al,re]=await Promise.all([
   get<any>(`${LB}/stats/user/${u}/artists?range=year&count=100`,headers),
-  get<any>(`${LB}/stats/user/${u}/recordings?range=year&count=10`,headers),
+  get<any>(`${LB}/stats/user/${u}/recordings?range=year&count=100`,headers),
   get<any>(`${LB}/stats/user/${u}/releases?range=year&count=10`,headers),
   get<any>(`${LB}/user/${u}/listens?count=100`,headers)
  ]);
@@ -45,12 +45,22 @@ async function enrichArtists(artists:Artist[]){
 function analyze(artists:Artist[],listens:Listen[]){const topArtistTotal=artists.reduce((s,a)=>s+a.playcount,0)||1,topFiveShare=Math.round(100*artists.slice(0,5).reduce((s,a)=>s+a.playcount,0)/topArtistTotal);const night=listens.filter(l=>{const h=new Date(l.timestamp*1000).getUTCHours();return h>=23||h<4}).length,early=listens.filter(l=>{const h=new Date(l.timestamp*1000).getUTCHours();return h>=6&&h<9}).length;const known=artists.filter(a=>a.listeners);const avg=known.reduce((s,a)=>s+(a.listeners||0),0)/(known.length||1);const first=artists[0];const multiplier=first?.listeners&&first.globalPlaycount?first.playcount/(first.globalPlaycount/first.listeners):null;return{uniqueArtists:new Set(artists.map(a=>a.mbid||a.name.toLowerCase())).size,nightOwlPercent:Math.round(100*night/(listens.length||1)),earlyBirdPercent:Math.round(100*early/(listens.length||1)),topFiveShare,undergroundScore:known.length?Math.round(avg):null,globalMultiplier:multiplier===null?null:Math.round(multiplier*10)/10}}
 function makeBadges(s:ReturnType<typeof analyze>,artists:Artist[]){const b=[];if(s.undergroundScore!==null&&s.undergroundScore<50000)b.push({id:"underground",title:"Underground Explorer",description:"Your top artists lean far from the mainstream.",emoji:"🪩"});if(s.undergroundScore!==null&&s.undergroundScore>2e6)b.push({id:"charts",title:"Chart Topper",description:"You gravitate toward globally popular artists.",emoji:"🏆"});if(s.topFiveShare>60)b.push({id:"loyal",title:"One-Track Mind",description:"Your five most-played artists dominate your top 100.",emoji:"🎯"});if(s.topFiveShare<35)b.push({id:"variety",title:"Genre Hopper",description:"Your plays are spread across many artists.",emoji:"🧭"});if(s.nightOwlPercent>40)b.push({id:"night",title:"Night Owl",description:"Over 40% of sampled listens happen overnight (UTC).",emoji:"🦉"});if(s.earlyBirdPercent>30)b.push({id:"morning",title:"Early Bird",description:"Mornings are part of your soundtrack (UTC).",emoji:"🌅"});const tag=artists.flatMap(a=>a.tags).find(Boolean);if(tag)b.push({id:"genre",title:`${tag} Soul`,description:`Your top artists keep bringing you back to ${tag}.`,emoji:"🎧"});return b.slice(0,5)}
 export async function buildWrap(source:Source,username:string):Promise<WrapData>{
- const key=`wrap:v2:${source}:${username.toLowerCase()}`;const cached=cacheGet<WrapData>(key);if(cached)return cached;
+ const key=`wrap:v3:${source}:${username.toLowerCase()}`;const cached=cacheGet<WrapData>(key);if(cached)return cached;
  const raw=source==="lastfm"?await fromLastfm(username):await fromListenBrainz(username);
  const allArtists=raw.topArtists;
  raw.topArtists=[...await enrichArtists(allArtists.slice(0,10)),...allArtists.slice(10)];
  const albums:Album[]=[];for(const album of raw.topAlbums.slice(0,8))albums.push(await resolveAlbum(album));raw.topAlbums=albums;
- raw.topTracks=await Promise.all(raw.topTracks.map(track=>resolveTrackPreview(track)));
- const stats=analyze(raw.topArtists,raw.listens);const result:WrapData={...raw,generatedAt:new Date().toISOString(),stats,badges:makeBadges(stats,raw.topArtists)};
+ const artistHighlights=raw.topArtists.slice(0,5).map(artist=>({artist,track:raw.topTracks.filter(track=>track.artist.toLowerCase()===artist.name.toLowerCase()).sort((a,b)=>b.playcount-a.playcount)[0]})).filter(x=>x.track);
+ const previewCandidates=[...raw.topTracks.slice(0,10),...artistHighlights.map(x=>x.track)];
+ const uniqueCandidates=[...new Map(previewCandidates.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track])).values()];
+ const previews=await Promise.all(uniqueCandidates.map(track=>resolveTrackPreview(track)));
+ const previewMap=new Map(previews.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track]));
+ raw.topTracks=raw.topTracks.map(track=>previewMap.get(track.artist.toLowerCase()+"::"+track.name.toLowerCase())||track);
+ raw.topArtists=raw.topArtists.map(artist=>({...artist,featuredTrack:artistHighlights.find(x=>x.artist.name===artist.name)?.track?previewMap.get(artistHighlights.find(x=>x.artist.name===artist.name)!.track.artist.toLowerCase()+"::"+artistHighlights.find(x=>x.artist.name===artist.name)!.track.name.toLowerCase()):undefined}));
+ const ignoredTags=new Set(["seen live","favorites","favorite","favourite","awesome","love","beautiful","good","under 2000 listeners","my favorites"]);
+ const genreTotals=new Map<string,{count:number;track?:Track}>();
+ for(const artist of raw.topArtists){for(const rawTag of artist.tags||[]){const name=rawTag.trim();const key=name.toLowerCase();if(!name||ignoredTags.has(key)||name.length>32||/^\\d/.test(name))continue;const current=genreTotals.get(key)||{count:0};current.count+=artist.playcount;const candidate=raw.topTracks.filter(track=>track.artist.toLowerCase()===artist.name.toLowerCase()).sort((a,b)=>b.playcount-a.playcount)[0];if(candidate&&(!current.track||candidate.playcount>current.track.playcount))current.track=candidate;genreTotals.set(key,current);}}
+ const genres=[...genreTotals.entries()].map(([name,value])=>({name:name.replace(/\\b\\w/g,ch=>ch.toUpperCase()),count:value.count,topTrack:value.track})).sort((a,b)=>b.count-a.count).slice(0,20);
+ const stats=analyze(raw.topArtists,raw.listens);const result:WrapData={...raw,genres,generatedAt:new Date().toISOString(),stats,badges:makeBadges(stats,raw.topArtists)};
  cacheSet(key,result,1800000);return result;
 }
