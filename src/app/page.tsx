@@ -49,7 +49,7 @@ export default function Home(){
    }
    if(!musicSlides)throw new Error("No verified track previews were available, so a music video could not be created.");
    recorder.stop();await stopped;
-   const type=recorder.mimeType||"video/webm";const blob=new Blob(chunks,{type});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`wrapping-${data.username||"recap"}.${type.includes("mp4")?"mp4":"webm"}`;link.click();URL.revokeObjectURL(url);
+   const type=recorder.mimeType||"video/webm";const blob=new Blob(chunks,{type});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download=`wrapping-${data.username||"recap"}.${type.includes("mp4")?"mp4":"webm"}`;link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1500);
   }catch(error){if(recorder&&recorder.state!=="inactive")recorder.stop();setError(error instanceof Error?error.message:"Could not export the Wrapped video.")}
   finally{if(audioContext)await audioContext.close().catch(()=>{});setVideoExporting(false)}
  }
