@@ -35,7 +35,7 @@ export default function Home(){
    recorder.start(250);
    const audioCache=new Map<string,AudioBuffer>();
    async function getAudio(track?:Track){if(!track?.previewUrl)return null;const url=track.previewUrl;if(audioCache.has(url))return audioCache.get(url)!;const response=await fetch("/api/preview?url="+encodeURIComponent(url));if(!response.ok)throw new Error("A matching music preview could not be loaded for the video.");const buffer=await audioContext!.decodeAudioData(await response.arrayBuffer());audioCache.set(url,buffer);return buffer}
-   const leadTrack=data.topTracks.find(track=>track.previewUrl)||data.topTracks[0];const artistTracks=data.topArtists.slice(0,5).map((artist)=>artist.featuredTrack);const genreTracks=data.genres.slice(0,8).map(genre=>genre.topTrack);const slideTracks:(Track|undefined)[]=[leadTrack,leadTrack,leadTrack,data.genres[0]?.topTrack||leadTrack,leadTrack,...artistTracks,...genreTracks,leadTrack,undefined,leadTrack];
+   const leadTrack=data.topTracks[0];const artistTracks=data.topArtists.slice(0,5).map((artist)=>artist.featuredTrack);const genreTracks=data.genres.slice(0,8).map(genre=>genre.topTrack);const slideTracks:(Track|undefined)[]=[leadTrack,leadTrack,leadTrack,data.genres[0]?.topTrack||leadTrack,leadTrack,...artistTracks,...genreTracks,leadTrack,undefined,leadTrack];
    let musicSlides=0;
    await audioContext.resume();
    for(let i=0;i<frames.length;i++){
