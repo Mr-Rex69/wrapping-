@@ -17,6 +17,9 @@ function artistCreditNames(credits:any[]):string{return (credits||[]).map(c=>c.n
 function isExact(a:string,b:string){return !!norm(a)&&norm(a)===norm(b)}
 export async function resolveArtist(a:Artist):Promise<Artist>{
   if(a.mbid) return a;
+  const cacheKey="mb-artist:"+norm(a.name);
+  const cached=cacheGet<Artist>(cacheKey);
+  if(cached?.mbid) return {...a,mbid:cached.mbid,disambiguation:cached.disambiguation};
   try{
     const q=encodeURIComponent(`artist:"${a.name.replace(/["\\]/g," ")}"`);
     const d=await mbFetch<any>(`/artist/?query=${q}&fmt=json&limit=5`);
@@ -30,6 +33,9 @@ export async function resolveArtist(a:Artist):Promise<Artist>{
   return a;
 }
 export async function resolveAlbum(a:Album):Promise<Album>{
+  const cacheKey="mb-album:"+norm(a.artist)+":"+norm(a.name)+":"+(a.mbid||"");
+  const cached=cacheGet<Album>(cacheKey);
+  if(cached) return {...a,...cached};
   if(a.mbid){
     try{
       const d=await mbFetch<any>(`/release/${a.mbid}?inc=artists+release-groups&fmt=json`);
