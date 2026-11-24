@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, AudioLines, Disc3, Headphones, Music2, Share2, Sparkles } from "lucide-react";
 import type { Source, WrapData } from "@/lib/types";
 const fmt=(n:number)=>new Intl.NumberFormat("en").format(n);
 export default function Home(){
  const [source,setSource]=useState<Source>("lastfm"),[username,setUsername]=useState(""),[data,setData]=useState<WrapData|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState(""),[slide,setSlide]=useState(0);
- async function generate(e:React.FormEvent){e.preventDefault();setLoading(true);setError("");try{const r=await fetch(`/api/wrap?source=${source}&username=${encodeURIComponent(username)}`);const body=await r.json();if(!r.ok)throw new Error(body.error||"Something went wrong.");setData(body);setSlide(0)}catch(e){setError(e instanceof Error?e.message:"Unable to generate your wrap.")}finally{setLoading(false)}}
+ async function generate(e:FormEvent){e.preventDefault();setLoading(true);setError("");try{const r=await fetch(`/api/wrap?source=${source}&username=${encodeURIComponent(username)}`);const body=await r.json();if(!r.ok)throw new Error(body.error||"Something went wrong.");setData(body);setSlide(0)}catch(e){setError(e instanceof Error?e.message:"Unable to generate your wrap.")}finally{setLoading(false)}}
  const slides=data?[
  <section className="story hero" key="intro"><p className="eyebrow">YOUR LAST 12 MONTHS</p><h1>Your year<br/><span>in sound.</span></h1><p className="sub">A listening story for <b>{data.username}</b>.</p><div className="big-number">{fmt(data.totalScrobbles)}</div><p className="metric-label">plays / scrobbles tracked</p></section>,
  <section className="story" key="artists"><p className="eyebrow">THE HEADLINERS</p><h2>Your top artists.</h2><div className="rank-list">{data.topArtists.slice(0,5).map((a,i)=><div className="rank" key={a.name}><span className="rank-num">0{i+1}</span><div className="rank-info"><b>{a.name}</b><small>{fmt(a.playcount)} plays</small></div><span className="rank-bar" style={{width:`${Math.max(8,100*a.playcount/(data.topArtists[0]?.playcount||1))}%`}}/></div>)}</div>{data.stats.globalMultiplier!==null&&<p className="callout">You played <b>{data.topArtists[0]?.name}</b> {data.stats.globalMultiplier}× the global average.</p>}</section>,
