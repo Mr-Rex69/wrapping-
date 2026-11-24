@@ -17,7 +17,11 @@ function artistCreditNames(credits:any[]):string{return (credits||[]).map(c=>(c.
 function primaryArtistName(credits:any[]):string{const c=(credits||[])[0];return c?.name||c?.artist?.name||""}
 function isExact(a:string,b:string){return !!norm(a)&&norm(a)===norm(b)}
 export async function resolveArtist(a:Artist):Promise<Artist>{
-  if(a.mbid) return a;
+  if(a.mbid){
+    const key="mb-artist-meta:"+a.mbid;const cached=cacheGet<string[]>(key);
+    if(cached)return {...a,tags:[...new Set([...a.tags,...cached])]};
+    try{const d=await mbFetch<any>(`/artist/${a.mbid}?inc=aliases+tags+genres&fmt=json`);const names=[d.name,...(d.aliases||[]).map((x:any)=>x.name)];if(names.some((name:string)=>isExact(name,a.name))){const tags=[...(d.genres||[]).map((x:any)=>x.name),...(d.tags||[]).map((x:any)=>x.name)].filter(Boolean);cacheSet(key,tags,30*86400000);return {...a,tags:[...new Set([...a.tags,...tags])]};}}catch{}return a;
+  }
   const cacheKey="mb-artist:"+norm(a.name);
   const cached=cacheGet<Artist>(cacheKey);
   if(cached?.mbid) return {...a,mbid:cached.mbid,disambiguation:cached.disambiguation};
