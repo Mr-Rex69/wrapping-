@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildWrap } from "@/lib/music";
 import type { Source } from "@/lib/types";
 export const runtime="nodejs";
-export const dynamic="force-dynamic";\nexport const maxDuration=60;
+export const dynamic="force-dynamic";
+export const maxDuration=60;
 export async function GET(request:NextRequest){
  const source=request.nextUrl.searchParams.get("source") as Source|null;
  const username=request.nextUrl.searchParams.get("username")?.trim();
