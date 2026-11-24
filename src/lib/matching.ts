@@ -13,7 +13,7 @@ async function mbFetch<T>(path:string):Promise<T>{
   if(!r.ok) throw new Error(`MusicBrainz HTTP ${r.status}`);
   return r.json() as Promise<T>;
 }
-function artistCreditNames(credits:any[]):string{return (credits||[]).map(c=>c.name||c.artist?.name||"").filter(Boolean).join(" ").trim()}
+function artistCreditNames(credits:any[]):string{return (credits||[]).map(c=>(c.name||c.artist?.name||"")+(c.joinphrase||"")).join("").trim()}\nfunction primaryArtistName(credits:any[]):string{const c=(credits||[])[0];return c?.name||c?.artist?.name||""}
 function isExact(a:string,b:string){return !!norm(a)&&norm(a)===norm(b)}
 export async function resolveArtist(a:Artist):Promise<Artist>{
   if(a.mbid) return a;
@@ -40,7 +40,7 @@ export async function resolveAlbum(a:Album):Promise<Album>{
     try{
       const d=await mbFetch<any>(`/release/${a.mbid}?inc=artists+release-groups&fmt=json`);
       const artist=artistCreditNames(d["artist-credit"]);
-      if(isExact(d.title,a.name)&&isExact(artist,a.artist)){
+      if(isExact(d.title,a.name)&&isExact(primaryArtistName(d["artist-credit"]),a.artist)){
         const found={...a,matched:true,matchedTitle:d.title,matchedArtist:artist,releaseMbid:d.id,releaseGroupMbid:d["release-group"]?.id,year:d.date?.slice(0,4),coverArt:`${CAA}/release/${d.id}/front-500`};cacheSet(cacheKey,found,30*86400000);return found;
       }
       return {...a,matched:false,matchNote:"The supplied release ID did not agree with the album and artist names."};
@@ -49,7 +49,7 @@ export async function resolveAlbum(a:Album):Promise<Album>{
   try{
     const q=encodeURIComponent(`release:"${a.name.replace(/["\\]/g," ")}" AND artist:"${a.artist.replace(/["\\]/g," ")}"`);
     const d=await mbFetch<any>(`/release/?query=${q}&fmt=json&limit=10`);
-    const exact=(d.releases||[]).filter((x:any)=>isExact(x.title,a.name)&&isExact(artistCreditNames(x["artist-credit"]),a.artist));
+    const exact=(d.releases||[]).filter((x:any)=>isExact(x.title,a.name)&&isExact(primaryArtistName(x["artist-credit"]),a.artist));
     if(exact.length===1){
       const x=exact[0];
       const found={...a,matched:true,matchedTitle:x.title,matchedArtist:artistCreditNames(x["artist-credit"]),releaseMbid:x.id,releaseGroupMbid:x["release-group"]?.id,year:x.date?.slice(0,4),coverArt:`${CAA}/release/${x.id}/front-500`};cacheSet(cacheKey,found,30*86400000);return found;
