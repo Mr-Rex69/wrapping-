@@ -13,7 +13,8 @@ async function mbFetch<T>(path:string):Promise<T>{
   if(!r.ok) throw new Error(`MusicBrainz HTTP ${r.status}`);
   return r.json() as Promise<T>;
 }
-function artistCreditNames(credits:any[]):string{return (credits||[]).map(c=>(c.name||c.artist?.name||"")+(c.joinphrase||"")).join("").trim()}\nfunction primaryArtistName(credits:any[]):string{const c=(credits||[])[0];return c?.name||c?.artist?.name||""}
+function artistCreditNames(credits:any[]):string{return (credits||[]).map(c=>(c.name||c.artist?.name||"")+(c.joinphrase||"")).join("").trim()}
+function primaryArtistName(credits:any[]):string{const c=(credits||[])[0];return c?.name||c?.artist?.name||""}
 function isExact(a:string,b:string){return !!norm(a)&&norm(a)===norm(b)}
 export async function resolveArtist(a:Artist):Promise<Artist>{
   if(a.mbid) return a;
