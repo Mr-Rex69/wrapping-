@@ -26,16 +26,20 @@ async function fromListenBrainz(username:string){
  const headers=process.env.LISTENBRAINZ_USER_TOKEN?{Authorization:`Token ${process.env.LISTENBRAINZ_USER_TOKEN}`}:undefined;
  const u=encodeURIComponent(username);
  const [ar,tr,al,re,ga]=await Promise.all([
-  get<any>(`${LB}/stats/user/${u}/artists?range=year&count=1000`,headers),
-  get<any>(`${LB}/stats/user/${u}/recordings?range=year&count=100`,headers),
-  get<any>(`${LB}/stats/user/${u}/releases?range=year&count=10`,headers),
-  get<any>(`${LB}/user/${u}/listens?count=100`,headers)
+  get<any>(LB+"/stats/user/"+u+"/artists?range=year&count=1000",headers),
+  get<any>(LB+"/stats/user/"+u+"/recordings?range=year&count=100",headers),
+  get<any>(LB+"/stats/user/"+u+"/releases?range=year&count=10",headers),
+  get<any>(LB+"/user/"+u+"/listens?count=100",headers),
+  get<any>(LB+"/stats/user/"+u+"/genre-activity?range=year",headers)
  ]);
  const topArtists:Artist[]=list(ar.payload?.artists).map((a:any)=>({name:a.artist_name,playcount:num(a.listen_count),mbid:a.artist_mbid||undefined,tags:[]}));
  const topTracks:Track[]=list(tr.payload?.recordings).map((t:any)=>({name:t.track_name,artist:t.artist_name||"Unknown",playcount:num(t.listen_count),mbid:t.recording_mbid||undefined,album:t.release_name||undefined}));
  const topAlbums:Album[]=list(al.payload?.releases).map((a:any)=>({name:a.release_name,artist:a.artist_name||"Unknown",playcount:num(a.listen_count),mbid:a.release_mbid||undefined}));
  const listens:Listen[]=list(re.payload?.listens).map((l:any)=>({artist:l.track_metadata?.artist_name||"Unknown",track:l.track_metadata?.track_name||"Unknown",timestamp:num(l.listened_at)}));
- return{source:"listenbrainz" as const,username,totalScrobbles:num(ar.payload?.total_listen_count)||topArtists.reduce((s,a)=>s+a.playcount,0),totalArtists:num(ar.payload?.total_artist_count)||topArtists.length,topArtists,topTracks,topAlbums,listens};
+ const genreMap=new Map<string,number>();
+ for(const item of list(ga.result)){const name=String(item.genre||"").trim();if(name)genreMap.set(name.toLowerCase(),(genreMap.get(name.toLowerCase())||0)+num(item.listen_count));}
+ const genreCounts=[...genreMap.entries()].map(([name,count])=>({name,count}));
+ return{source:"listenbrainz" as const,username,totalScrobbles:num(ar.payload?.total_listen_count)||topArtists.reduce((s,a)=>s+a.playcount,0),totalArtists:num(ar.payload?.total_artist_count)||topArtists.length,topArtists,topTracks,topAlbums,genreCounts,genreCountType:"listens" as const,listens};
 }
 async function enrichArtists(artists:Artist[]){
  const resolved:Artist[]=[];
