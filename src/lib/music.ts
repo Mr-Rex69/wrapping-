@@ -13,7 +13,10 @@ async function fromLastfm(username:string){
   lastfm("user.getTopAlbums",{user:username,period:"12month",limit:"10"}),
   lastfm("user.getRecentTracks",{user:username,limit:"200"})
  ]);
- const artistRows=list(ar.topartists?.artist);\n const totalPages=Math.max(1,num(ar.topartists?.["@attr"]?.totalPages));\n for(let page=2;page<=totalPages;page+=1){const next=await lastfm("user.getTopArtists",{user:username,period:"12month",limit:"1000",page:String(page)});artistRows.push(...list(next.topartists?.artist));}\n const topArtists:Artist[]=artistRows.map((a:any)=>({name:a.name,playcount:num(a.playcount),mbid:a.mbid||undefined,image:list(a.image).at(-1)?.["#text"]||undefined,tags:[]}));
+ const artistRows=list(ar.topartists?.artist);
+ const totalPages=Math.max(1,num(ar.topartists?.["@attr"]?.totalPages));
+ for(let page=2;page<=totalPages;page+=1){const next=await lastfm("user.getTopArtists",{user:username,period:"12month",limit:"1000",page:String(page)});artistRows.push(...list(next.topartists?.artist));}
+ const topArtists:Artist[]=artistRows.map((a:any)=>({name:a.name,playcount:num(a.playcount),mbid:a.mbid||undefined,image:list(a.image).at(-1)?.["#text"]||undefined,tags:[]}));
  const topTracks:Track[]=list(tr.toptracks?.track).map((t:any)=>({name:t.name,artist:t.artist?.name||t.artist?.["#text"]||"Unknown",playcount:num(t.playcount),mbid:t.mbid||undefined,url:t.url,album:t.album?.name||undefined}));
  const topAlbums:Album[]=list(al.topalbums?.album).map((a:any)=>({name:a.name,artist:a.artist?.name||a.artist?.["#text"]||"Unknown",playcount:num(a.playcount),mbid:a.mbid||undefined}));
  const listens:Listen[]=list(re.recenttracks?.track).filter((t:any)=>t.date?.uts).map((t:any)=>({artist:t.artist?.["#text"]||"Unknown",track:t.name,timestamp:num(t.date.uts)}));
