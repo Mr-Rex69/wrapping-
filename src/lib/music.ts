@@ -61,6 +61,10 @@ export async function buildWrap(source:Source,username:string):Promise<WrapData>
  const genreTotals=new Map<string,{count:number;track?:Track}>();
  for(const artist of raw.topArtists){for(const rawTag of artist.tags||[]){const name=rawTag.trim();const key=name.toLowerCase();if(!name||ignoredTags.has(key)||name.length>32||/^\d/.test(name))continue;const current=genreTotals.get(key)||{count:0};current.count+=artist.playcount;const candidate=raw.topTracks.filter(track=>track.artist.toLowerCase()===artist.name.toLowerCase()).sort((a,b)=>b.playcount-a.playcount)[0];if(candidate&&(!current.track||candidate.playcount>current.track.playcount))current.track=candidate;genreTotals.set(key,current);}}
  const genres=[...genreTotals.entries()].map(([name,value])=>({name:name.replace(/\b\w/g,ch=>ch.toUpperCase()),count:value.count,topTrack:value.track})).sort((a,b)=>b.count-a.count).slice(0,20);
+ const genreCandidates=genres.slice(0,8).map(genre=>genre.topTrack).filter((track):track is Track=>!!track&&!track.previewUrl);
+ const genrePreviewResults=await Promise.all(genreCandidates.map(track=>resolveTrackPreview(track)));
+ const genrePreviewMap=new Map(genrePreviewResults.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track]));
+ for(const genre of genres){if(genre.topTrack){genre.topTrack=genrePreviewMap.get(genre.topTrack.artist.toLowerCase()+"::"+genre.topTrack.name.toLowerCase())||genre.topTrack;}}
  const stats=analyze(raw.topArtists,raw.listens);const result:WrapData={...raw,genres,generatedAt:new Date().toISOString(),stats,badges:makeBadges(stats,raw.topArtists)};
  cacheSet(key,result,1800000);return result;
 }
