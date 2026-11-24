@@ -8,22 +8,22 @@ async function get<T>(url:string,headers?:Record<string,string>):Promise<T>{cons
 async function lastfm(method:string,params:Record<string,string>={}){const key=process.env.LASTFM_API_KEY;if(!key)throw new Error("Last.fm is not configured. Add LASTFM_API_KEY to the server environment.");const u=new URL(LASTFM);u.search=new URLSearchParams({method,api_key:key,format:"json",...params}).toString();const d=await get<any>(u.toString());if(d.error)throw new Error(d.message||"Last.fm API error");return d}
 async function fromLastfm(username:string){
  const [ar,tr,al,re]=await Promise.all([
-  lastfm("user.getTopArtists",{user:username,period:"12month",limit:"100"}),
+  lastfm("user.getTopArtists",{user:username,period:"12month",limit:"1000"}),
   lastfm("user.getTopTracks",{user:username,period:"12month",limit:"100"}),
   lastfm("user.getTopAlbums",{user:username,period:"12month",limit:"10"}),
   lastfm("user.getRecentTracks",{user:username,limit:"200"})
  ]);
- const topArtists:Artist[]=list(ar.topartists?.artist).map((a:any)=>({name:a.name,playcount:num(a.playcount),mbid:a.mbid||undefined,image:list(a.image).at(-1)?.["#text"]||undefined,tags:[]}));
+ const artistRows=list(ar.topartists?.artist);\n const totalPages=Math.max(1,num(ar.topartists?.["@attr"]?.totalPages));\n for(let page=2;page<=totalPages;page+=1){const next=await lastfm("user.getTopArtists",{user:username,period:"12month",limit:"1000",page:String(page)});artistRows.push(...list(next.topartists?.artist));}\n const topArtists:Artist[]=artistRows.map((a:any)=>({name:a.name,playcount:num(a.playcount),mbid:a.mbid||undefined,image:list(a.image).at(-1)?.["#text"]||undefined,tags:[]}));
  const topTracks:Track[]=list(tr.toptracks?.track).map((t:any)=>({name:t.name,artist:t.artist?.name||t.artist?.["#text"]||"Unknown",playcount:num(t.playcount),mbid:t.mbid||undefined,url:t.url,album:t.album?.name||undefined}));
  const topAlbums:Album[]=list(al.topalbums?.album).map((a:any)=>({name:a.name,artist:a.artist?.name||a.artist?.["#text"]||"Unknown",playcount:num(a.playcount),mbid:a.mbid||undefined}));
  const listens:Listen[]=list(re.recenttracks?.track).filter((t:any)=>t.date?.uts).map((t:any)=>({artist:t.artist?.["#text"]||"Unknown",track:t.name,timestamp:num(t.date.uts)}));
- return{source:"lastfm" as const,username,totalScrobbles:topArtists.reduce((s,a)=>s+a.playcount,0),topArtists,topTracks,topAlbums,listens};
+ return{source:"lastfm" as const,username,totalScrobbles:topArtists.reduce((s,a)=>s+a.playcount,0),totalArtists:num(ar.topartists?.["@attr"]?.total)||topArtists.length,topArtists,topTracks,topAlbums,listens};
 }
 async function fromListenBrainz(username:string){
  const headers=process.env.LISTENBRAINZ_USER_TOKEN?{Authorization:`Token ${process.env.LISTENBRAINZ_USER_TOKEN}`}:undefined;
  const u=encodeURIComponent(username);
  const [ar,tr,al,re]=await Promise.all([
-  get<any>(`${LB}/stats/user/${u}/artists?range=year&count=100`,headers),
+  get<any>(`${LB}/stats/user/${u}/artists?range=year&count=1000`,headers),
   get<any>(`${LB}/stats/user/${u}/recordings?range=year&count=100`,headers),
   get<any>(`${LB}/stats/user/${u}/releases?range=year&count=10`,headers),
   get<any>(`${LB}/user/${u}/listens?count=100`,headers)
@@ -32,7 +32,7 @@ async function fromListenBrainz(username:string){
  const topTracks:Track[]=list(tr.payload?.recordings).map((t:any)=>({name:t.track_name,artist:t.artist_name||"Unknown",playcount:num(t.listen_count),mbid:t.recording_mbid||undefined,album:t.release_name||undefined}));
  const topAlbums:Album[]=list(al.payload?.releases).map((a:any)=>({name:a.release_name,artist:a.artist_name||"Unknown",playcount:num(a.listen_count),mbid:a.release_mbid||undefined}));
  const listens:Listen[]=list(re.payload?.listens).map((l:any)=>({artist:l.track_metadata?.artist_name||"Unknown",track:l.track_metadata?.track_name||"Unknown",timestamp:num(l.listened_at)}));
- return{source:"listenbrainz" as const,username,totalScrobbles:num(ar.payload?.total_listen_count)||topArtists.reduce((s,a)=>s+a.playcount,0),topArtists,topTracks,topAlbums,listens};
+ return{source:"listenbrainz" as const,username,totalScrobbles:num(ar.payload?.total_listen_count)||topArtists.reduce((s,a)=>s+a.playcount,0),totalArtists:num(ar.payload?.total_artist_count)||topArtists.length,topArtists,topTracks,topAlbums,listens};
 }
 async function enrichArtists(artists:Artist[]){
  const resolved:Artist[]=[];
@@ -65,6 +65,6 @@ export async function buildWrap(source:Source,username:string):Promise<WrapData>
  const genrePreviewResults=await Promise.all(genreCandidates.map(track=>resolveTrackPreview(track)));
  const genrePreviewMap=new Map(genrePreviewResults.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track]));
  for(const genre of genres){if(genre.topTrack){genre.topTrack=genrePreviewMap.get(genre.topTrack.artist.toLowerCase()+"::"+genre.topTrack.name.toLowerCase())||genre.topTrack;}}
- const stats=analyze(raw.topArtists,raw.listens);const result:WrapData={...raw,genres,generatedAt:new Date().toISOString(),stats,badges:makeBadges(stats,raw.topArtists)};
+ const stats=analyze(raw.topArtists,raw.listens);stats.uniqueArtists=raw.totalArtists;const result:WrapData={...raw,genres,generatedAt:new Date().toISOString(),stats,badges:makeBadges(stats,raw.topArtists)};
  cacheSet(key,result,1800000);return result;
 }
