@@ -20,7 +20,7 @@ export async function resolveArtist(a:Artist):Promise<Artist>{
   if(a.mbid){
     const key="mb-artist-meta:"+a.mbid;const cached=cacheGet<string[]>(key);
     if(cached)return {...a,tags:[...new Set([...a.tags,...cached])]};
-    try{const d=await mbFetch<any>(`/artist/${a.mbid}?inc=aliases+tags+genres&fmt=json`);const names=[d.name,...(d.aliases||[]).map((x:any)=>x.name)];if(names.some((name:string)=>isExact(name,a.name))){const tags=[...(d.genres||[]).map((x:any)=>x.name),...(d.tags||[]).map((x:any)=>x.name)].filter(Boolean);cacheSet(key,tags,30*86400000);return {...a,tags:[...new Set([...a.tags,...tags])]};}}catch{}return a;
+    try{const d=await mbFetch<any>(`/artist/${a.mbid}?inc=aliases+tags+genres&fmt=json`);const names=[d.name,...(d.aliases||[]).map((x:any)=>x.name)];if(names.some((name:string)=>isExact(name,a.name))){const tags=[...(d.genres||[]).map((x:any)=>x.name),...(d.tags||[]).map((x:any)=>x.name)].filter(Boolean);cacheSet(key,tags,30*86400000);return {...a,tags:[...new Set([...a.tags,...tags])]};}return {...a,mbid:undefined};}catch{return {...a,mbid:undefined}}
   }
   const cacheKey="mb-artist:"+norm(a.name);
   const cached=cacheGet<Artist>(cacheKey);
