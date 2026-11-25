@@ -2,7 +2,7 @@ import { cacheGet, cacheSet } from "./cache";
 import type { Album, Artist, Track } from "./types";
 
 const API = "https://www.googleapis.com/youtube/v3";
-const norm=(s:string)=>s.normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const norm=(s:string)=>s.normalize("NFKD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 async function search(q:string,type:"video"|"channel"){
  const key=process.env.YOUTUBE_API_KEY;
  if(!key)return [];
@@ -10,7 +10,7 @@ async function search(q:string,type:"video"|"channel"){
  const cached=cacheGet<any[]>(cacheKey);if(cached)return cached;
  try{
   const u=new URL(API+"/search");
-  u.search=new URLSearchParams({part:"snippet",q,type,maxResults:"8",safeSearch:"none",...(type==="video"?{videoEmbeddable:"true",videoSyndicated:"true"}:{}) ,key}).toString();
+  u.search=new URLSearchParams({part:"snippet",q,type,maxResults:"8",safeSearch:"none",...(type==="video"?{videoEmbeddable:"true",videoSyndicated:"true"}:{}),key}).toString();
   const r=await fetch(u,{cache:"no-store"});
   if(!r.ok)return [];
   const d=await r.json() as any;
@@ -30,7 +30,7 @@ export async function enrichTrackWithYouTube(track:Track):Promise<Track>{
  if(!process.env.YOUTUBE_API_KEY)return track;
  const rows=await search(track.name+" "+track.artist+" official audio", "video");
  const candidates=rows.map((x:any)=>({x,score:scoreMatch(x.snippet?.title||"",track.artist)}))
-  .filter(({x,score})=>x.id?.videoId&&score>=0.5&&norm(x.snippet?.title||"").includes(norm(track.name)));
+  .filter((candidate: {x:any;score:number})=>candidate.x.id?.videoId&&candidate.score>=0.5&&norm(candidate.x.snippet?.title||"").includes(norm(track.name)));
  candidates.sort((a,b)=>b.score-a.score);
  const best=candidates[0]?.x;if(!best)return track;
  return {...track,youtubeVideoId:best.id.videoId,youtubeThumbnail:best.snippet?.thumbnails?.high?.url||best.snippet?.thumbnails?.medium?.url||best.snippet?.thumbnails?.default?.url};
