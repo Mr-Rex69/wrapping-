@@ -188,3 +188,13 @@
  .story-controls{flex-wrap:wrap}
  .story-controls .audio-enable{width:100%;justify-content:center}
 }
+
+
+/* YouTube media surfaces */
+.youtube-music-player{display:block;width:100%;aspect-ratio:16/9;height:auto;min-height:150px;margin:12px 0 0;border:0;border-radius:8px;background:#000}
+.report-album{display:flex;align-items:center;gap:10px;margin:8px 0}
+.report-album img{width:48px;height:48px;object-fit:cover;border-radius:4px;flex:none}
+.report-album p{flex:1;margin:0}
+.report-album small{display:block}
+.story-frame:has(.artist-single) .youtube-music-player{max-height:155px}
+@media(max-width:720px){.youtube-music-player{min-height:145px}.story-frame:has(.artist-single) .youtube-music-player{max-height:145px}}
