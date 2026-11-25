@@ -4,7 +4,7 @@ import type { Album, Artist, Listen, Source, Track, WrapData } from "./types";
 const LASTFM="https://ws.audioscrobbler.com/2.0/", LB="https://api.listenbrainz.org/1";
 const list=<T,>(v:T|T[]|undefined):T[]=>v?(Array.isArray(v)?v:[v]):[];
 const num=(v:unknown)=>Number(v||0);
-async function get<T>(url:string,headers?:Record<string,string>):Promise<T>{const r=await fetch(url,{headers:{"User-Agent":"Wrapping/0.2.0",...headers},cache:"no-store"});if(!r.ok)throw new Error(`Music service returned HTTP ${r.status}`);return r.json() as Promise<T>}
+async function get<T>(url:string,headers?:Record<string,string>):Promise<T>{const r=await fetch(url,{headers:{"User-Agent":"Wrapping/0.2.0",...headers},cache:"no-store"});if(r.status===204)return {} as T;const body=await r.text();if(!r.ok)throw new Error(`Music service returned HTTP ${r.status}${body?`: ${body.slice(0,200)}`:""}`);if(!body.trim())return {} as T;try{return JSON.parse(body) as T}catch{throw new Error(`Music service returned invalid JSON (HTTP ${r.status})`)}}
 async function lastfm(method:string,params:Record<string,string>={}){const key=process.env.LASTFM_API_KEY;if(!key)throw new Error("Last.fm is not configured. Add LASTFM_API_KEY to the server environment.");const u=new URL(LASTFM);u.search=new URLSearchParams({method,api_key:key,format:"json",...params}).toString();const d=await get<any>(u.toString());if(d.error)throw new Error(d.message||"Last.fm API error");return d}
 async function fromLastfm(username:string){
  const [ar,tr,al,re]=await Promise.all([
