@@ -59,7 +59,8 @@ export async function buildWrap(source:Source,username:string):Promise<WrapData>
  const allArtists=raw.topArtists;
  raw.topArtists=[...await enrichArtists(allArtists.slice(0,10)),...allArtists.slice(10)];
  const albums:Album[]=[];for(const album of raw.topAlbums.slice(0,8)){const resolved=await resolveAlbum(album);albums.push(await enrichAlbumWithYouTube(resolved));}raw.topAlbums=albums;
- raw.topArtists=await Promise.all(raw.topArtists.slice(0,10).map(enrichArtistWithYouTube).then(rows=>[...rows,...raw.topArtists.slice(10)]));
+ const artistMedia=await Promise.all(raw.topArtists.slice(0,10).map(enrichArtistWithYouTube));
+ raw.topArtists=[...artistMedia,...raw.topArtists.slice(10)];
  const artistHighlights=raw.topArtists.slice(0,5).map(artist=>({artist,track:raw.topTracks.filter(track=>track.artist.toLowerCase()===artist.name.toLowerCase()).sort((a,b)=>b.playcount-a.playcount)[0]})).filter(x=>x.track);
  const previewCandidates=[...raw.topTracks.slice(0,10),...artistHighlights.map(x=>x.track)];
  const uniqueCandidates=[...new Map(previewCandidates.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track])).values()];
