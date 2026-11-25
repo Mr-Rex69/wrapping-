@@ -12,3 +12,9 @@
 
 .artist-hero-image{width:150px;height:150px;object-fit:cover;border-radius:18px;margin:20px 0 5px;border:1px solid var(--line)}.artist-single .big-number,.genre-single .big-number{margin-top:30px}.artist-single .featured-track,.genre-single .featured-track{margin-top:22px;padding:18px;border:1px solid var(--line);border-radius:12px;background:#ffffff08;max-width:520px}
 .video-frame .artist-hero-image{width:240px;height:240px}.video-frame .artist-single .big-number,.video-frame .genre-single .big-number{font-size:110px}
+
+
+/* Story slides animate on navigation; reduced-motion preferences are respected. */
+.story-frame{transform-origin:center;animation:story-enter 560ms cubic-bezier(.2,.75,.25,1) both}
+@keyframes story-enter{from{opacity:0;transform:translate3d(0,22px,0) scale(.985);filter:blur(3px)}to{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+@media(prefers-reduced-motion:reduce){.story-frame{animation:none}}
