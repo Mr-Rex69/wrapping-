@@ -31,7 +31,7 @@ export async function enrichTrackWithYouTube(track:Track):Promise<Track>{
  const rows=await search(track.name+" "+track.artist+" official audio", "video");
  const candidates=rows.map((x:any)=>({x,score:scoreMatch(x.snippet?.title||"",track.artist)}))
   .filter((candidate: {x:any;score:number})=>candidate.x.id?.videoId&&candidate.score>=0.5&&norm(candidate.x.snippet?.title||"").includes(norm(track.name)));
- candidates.sort((a,b)=>b.score-a.score);
+ candidates.sort((a: {x:any;score:number},b: {x:any;score:number})=>b.score-a.score);
  const best=candidates[0]?.x;if(!best)return track;
  return {...track,youtubeVideoId:best.id.videoId,youtubeThumbnail:best.snippet?.thumbnails?.high?.url||best.snippet?.thumbnails?.medium?.url||best.snippet?.thumbnails?.default?.url};
 }
