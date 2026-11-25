@@ -1,5 +1,6 @@
 import { cacheGet, cacheSet } from "./cache";
 import { resolveAlbum, resolveArtist, resolveTrackPreview } from "./matching";
+import { enrichAlbumWithYouTube, enrichArtistWithYouTube, enrichTrackWithYouTube } from "./youtube";
 import type { Album, Artist, Listen, Source, Track, WrapData } from "./types";
 const LASTFM="https://ws.audioscrobbler.com/2.0/", LB="https://api.listenbrainz.org/1";
 const list=<T,>(v:T|T[]|undefined):T[]=>v?(Array.isArray(v)?v:[v]):[];
@@ -57,11 +58,12 @@ export async function buildWrap(source:Source,username:string):Promise<WrapData>
  if(!raw.topArtists.length&&!raw.topTracks.length&&!raw.topAlbums.length){throw new Error(source==="listenbrainz"?"ListenBrainz has no yearly statistics available for this profile yet. Recent listens alone cannot produce a yearly wrap. Try again after ListenBrainz calculates your yearly statistics.":"Last.fm returned no yearly artist, track, or album statistics for this username and period.");}
  const allArtists=raw.topArtists;
  raw.topArtists=[...await enrichArtists(allArtists.slice(0,10)),...allArtists.slice(10)];
- const albums:Album[]=[];for(const album of raw.topAlbums.slice(0,8))albums.push(await resolveAlbum(album));raw.topAlbums=albums;
+ const albums:Album[]=[];for(const album of raw.topAlbums.slice(0,8)){const resolved=await resolveAlbum(album);albums.push(await enrichAlbumWithYouTube(resolved));}raw.topAlbums=albums;
+ raw.topArtists=await Promise.all(raw.topArtists.slice(0,10).map(enrichArtistWithYouTube).then(rows=>[...rows,...raw.topArtists.slice(10)]));
  const artistHighlights=raw.topArtists.slice(0,5).map(artist=>({artist,track:raw.topTracks.filter(track=>track.artist.toLowerCase()===artist.name.toLowerCase()).sort((a,b)=>b.playcount-a.playcount)[0]})).filter(x=>x.track);
  const previewCandidates=[...raw.topTracks.slice(0,10),...artistHighlights.map(x=>x.track)];
  const uniqueCandidates=[...new Map(previewCandidates.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track])).values()];
- const previews=await Promise.all(uniqueCandidates.map(track=>resolveTrackPreview(track)));
+ const previews=await Promise.all(uniqueCandidates.map(async track=>{const withApple=await resolveTrackPreview(track);return enrichTrackWithYouTube(withApple)}));
  const previewMap=new Map(previews.map(track=>[track.artist.toLowerCase()+"::"+track.name.toLowerCase(),track]));
  raw.topTracks=raw.topTracks.map(track=>previewMap.get(track.artist.toLowerCase()+"::"+track.name.toLowerCase())||track);
  raw.topArtists=raw.topArtists.map(artist=>({...artist,featuredTrack:artistHighlights.find(x=>x.artist.name===artist.name)?.track?previewMap.get(artistHighlights.find(x=>x.artist.name===artist.name)!.track.artist.toLowerCase()+"::"+artistHighlights.find(x=>x.artist.name===artist.name)!.track.name.toLowerCase()):undefined}));
