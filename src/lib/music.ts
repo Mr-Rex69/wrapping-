@@ -54,6 +54,7 @@ function makeBadges(s:ReturnType<typeof analyze>,artists:Artist[]){const b=[];if
 export async function buildWrap(source:Source,username:string):Promise<WrapData>{
  const key=`wrap:v3:${source}:${username.toLowerCase()}`;const cached=cacheGet<WrapData>(key);if(cached)return cached;
  const raw=source==="lastfm"?await fromLastfm(username):await fromListenBrainz(username);
+ if(!raw.topArtists.length&&!raw.topTracks.length&&!raw.topAlbums.length){throw new Error(source==="listenbrainz"?"ListenBrainz has no yearly statistics available for this profile yet. Recent listens alone cannot produce a yearly wrap. Try again after ListenBrainz calculates your yearly statistics.":"Last.fm returned no yearly artist, track, or album statistics for this username and period.");}
  const allArtists=raw.topArtists;
  raw.topArtists=[...await enrichArtists(allArtists.slice(0,10)),...allArtists.slice(10)];
  const albums:Album[]=[];for(const album of raw.topAlbums.slice(0,8))albums.push(await resolveAlbum(album));raw.topAlbums=albums;
